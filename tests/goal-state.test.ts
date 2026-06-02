@@ -105,16 +105,23 @@ describe("goal state transitions", () => {
 
   it("sets budget-limited when current usage already exceeds a new budget", () => {
     const active = createGoal(emptyGoalState(), { objective: "work", goalId: "g1", now: 10 });
-    const used = { ...active, goal: active.goal && { ...active.goal, tokensUsed: 500 }, runtime: { ...active.runtime, noProgressTurns: 3 } };
+    const used = {
+      ...active,
+      goal: active.goal && { ...active.goal, tokensUsed: 500 },
+      runtime: { ...active.runtime, noProgressTurns: 3, lastContinuationRequestId: "g1:1:10", wrapUpScheduledForGoalId: "g1" },
+    };
     const limited = setGoalBudget(used, 100, { now: 11 });
     expect(limited.goal?.status).toBe("budget_limited");
     const raised = setGoalBudget(limited, 1000, { now: 12 });
     expect(raised.goal?.status).toBe("active");
     expect(raised.runtime.wrapUpScheduledForGoalId).toBeNull();
+    expect(raised.runtime.lastContinuationRequestId).toBeNull();
     expect(raised.runtime.noProgressTurns).toBe(0);
 
     const cleared = clearGoalBudget(limited, { now: 13 });
     expect(cleared.goal?.status).toBe("active");
+    expect(cleared.runtime.wrapUpScheduledForGoalId).toBeNull();
+    expect(cleared.runtime.lastContinuationRequestId).toBeNull();
     expect(cleared.runtime.noProgressTurns).toBe(0);
   });
 

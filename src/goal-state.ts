@@ -413,6 +413,8 @@ export function clearGoalBudget(state: GoalStateV1, options: TransitionOptions =
         lastAccountedAt: resumes ? now : state.runtime.lastAccountedAt,
         autoContinueSuppressedReason: resumes ? null : state.runtime.autoContinueSuppressedReason,
         noProgressTurns: resumes ? 0 : state.runtime.noProgressTurns,
+        lastContinuationRequestId: resumes ? null : state.runtime.lastContinuationRequestId,
+        wrapUpScheduledForGoalId: resumes ? null : state.runtime.wrapUpScheduledForGoalId,
       },
     },
     "goal.budget.clear",
