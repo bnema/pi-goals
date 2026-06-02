@@ -21,8 +21,14 @@ describe("config", () => {
 
   it("falls back safely with warnings for invalid values", () => {
     const warnings: string[] = [];
-    const config = mergeConfig(DEFAULT_CONFIG, { maxAutoContinuations: -1, usageLimitPatterns: [1] }, warnings);
+    const config = mergeConfig(
+      DEFAULT_CONFIG,
+      { maxAutoContinuations: -1, noProgressTurnLimit: 0.5, defaultTokenBudget: 0.5, usageLimitPatterns: [1] },
+      warnings,
+    );
     expect(config.maxAutoContinuations).toBe(DEFAULT_CONFIG.maxAutoContinuations);
+    expect(config.noProgressTurnLimit).toBe(DEFAULT_CONFIG.noProgressTurnLimit);
+    expect(config.defaultTokenBudget).toBe(DEFAULT_CONFIG.defaultTokenBudget);
     expect(warnings.length).toBeGreaterThan(0);
     expect(snapshotConfig(config).autoContinue).toBe(DEFAULT_CONFIG.autoContinue);
   });

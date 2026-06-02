@@ -374,6 +374,7 @@ export function setGoalBudget(state: GoalStateV1, tokenBudget: number | null, op
       activeTurnStartedAt: now,
       lastAccountedAt: now,
       autoContinueSuppressedReason: null,
+      noProgressTurns: 0,
       lastContinuationRequestId: null,
       wrapUpScheduledForGoalId: null,
     };
@@ -411,6 +412,7 @@ export function clearGoalBudget(state: GoalStateV1, options: TransitionOptions =
         activeTurnStartedAt: resumes ? now : state.runtime.activeTurnStartedAt,
         lastAccountedAt: resumes ? now : state.runtime.lastAccountedAt,
         autoContinueSuppressedReason: resumes ? null : state.runtime.autoContinueSuppressedReason,
+        noProgressTurns: resumes ? 0 : state.runtime.noProgressTurns,
       },
     },
     "goal.budget.clear",

@@ -144,7 +144,6 @@ export function maybeScheduleContinuation(pi: Pick<LifecycleApi, "sendMessage" |
   if (!goal) return false;
 
   if (goal.status === "budget_limited") {
-    if (state.runtime.autoContinueSuppressedReason) return false;
     if (state.runtime.wrapUpScheduledForGoalId === goal.goalId) return false;
     const message = {
       customType: "pi-goals/budget-wrapup",
@@ -176,7 +175,7 @@ export function maybeScheduleContinuation(pi: Pick<LifecycleApi, "sendMessage" |
   }
   if (goal.continuationCount >= state.config.maxAutoContinuations) return suppress(pi, store, ctx, "auto-continuation cap reached");
   if (state.runtime.autoContinueSuppressedReason) return false;
-  if (state.runtime.lastContinuationRequestId?.startsWith(goal.goalId)) return false;
+  if (state.runtime.lastContinuationRequestId?.startsWith(`${goal.goalId}:`)) return false;
 
   const requestId = `${goal.goalId}:${goal.continuationCount + 1}:${unixNow()}`;
   const next: GoalStateV1 = {
@@ -308,10 +307,11 @@ function isMeaningfulAssistantText(text: string, threshold: number): boolean {
 }
 
 function isUsageLimitText(text: string, patterns: string[]): boolean {
-  const lower = text.toLowerCase();
+  const sample = text.slice(0, 2000);
+  const lower = sample.toLowerCase();
   return patterns.some((pattern) => {
     try {
-      return new RegExp(pattern, "i").test(text);
+      return new RegExp(pattern, "i").test(sample);
     } catch {
       return lower.includes(pattern.toLowerCase());
     }

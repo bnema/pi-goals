@@ -60,7 +60,7 @@ export async function handleGoalCommand(
   if (command.kind === "create") {
     const objective = normalizeObjective(command.objective, config.maxObjectiveChars);
     const state = accountElapsedTime(store.getState(), now);
-    if (state.goal && (state.goal.status !== "complete" || isUnfinishedGoal(state.goal))) {
+    if (state.goal && isUnfinishedGoal(state.goal)) {
       const confirmed = !config.confirmReplace || (await confirmMutation(ctx, command.force, `Replace existing ${state.goal.status} goal?`));
       if (!confirmed) return "Goal replacement cancelled.";
     }

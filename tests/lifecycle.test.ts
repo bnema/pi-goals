@@ -139,10 +139,21 @@ describe("auto-continuation", () => {
 
     const limited = budgetLimitGoal(createGoal(emptyGoalState(snapshotConfig(DEFAULT_CONFIG)), { objective: "work", goalId: "g2", now: 20 }), { now: 21 });
     const wrapPi = new FakePi();
-    const wrapStore = createGoalStore(limited, DEFAULT_CONFIG);
+    const suppressedLimited = { ...limited, runtime: { ...limited.runtime, autoContinueSuppressedReason: "no meaningful progress detected" } };
+    const wrapStore = createGoalStore(suppressedLimited, DEFAULT_CONFIG);
     expect(maybeScheduleContinuation(wrapPi, wrapStore, ctx)).toBe(true);
     expect(maybeScheduleContinuation(wrapPi, wrapStore, ctx)).toBe(false);
     expect(wrapPi.messages).toHaveLength(1);
+  });
+
+  it("does not treat prefix-overlapping continuation request ids as the same goal latch", () => {
+    const active = createGoal(emptyGoalState(snapshotConfig(DEFAULT_CONFIG)), { objective: "work", goalId: "g1", now: 10 });
+    const store = createGoalStore({ ...active, runtime: { ...active.runtime, lastContinuationRequestId: "g10:1:20" } }, DEFAULT_CONFIG);
+    const pi = new FakePi();
+    const ctx = new FakeCtx();
+
+    expect(maybeScheduleContinuation(pi, store, ctx)).toBe(true);
+    expect(pi.messages[0]?.message.customType).toBe("pi-goals/continuation");
   });
 
   it("does not persist continuation latches when delivery is unavailable", () => {

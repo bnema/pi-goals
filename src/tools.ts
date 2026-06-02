@@ -69,7 +69,7 @@ export function registerGoalTools(pi: ToolRegistrationApi, store: PiGoalsStore):
     promptGuidelines: [
       "Use update_goal complete only when the entire current goal is achieved and verified.",
       "Use update_goal blocked only after the same blocker has recurred for at least three consecutive goal turns.",
-      "Never use update_goal for active, paused, budget_limited, usage_limited, resumed, or cleared states.",
+      "update_goal can only set status to complete or blocked; never attempt to set active, paused, budget_limited, usage_limited, resumed, or cleared.",
     ],
     parameters: Type.Object({
       status: StringEnum(["complete", "blocked"] as const),

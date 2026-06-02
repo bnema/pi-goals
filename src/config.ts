@@ -106,8 +106,9 @@ export function configHelp(config: GoalConfig, sources: string[] = []): string {
 function setPositiveInt(input: Record<string, unknown>, key: keyof GoalConfig, target: GoalConfig, warnings: string[], source: string): void {
   if (!(key in input)) return;
   const value = input[key];
-  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
-    (target[key] as number) = Math.floor(value);
+  const parsed = typeof value === "number" && Number.isFinite(value) ? Math.floor(value) : null;
+  if (parsed !== null && parsed > 0) {
+    (target[key] as number) = parsed;
     return;
   }
   warnings.push(`${source}: ${key} must be a positive number.`);
@@ -116,8 +117,9 @@ function setPositiveInt(input: Record<string, unknown>, key: keyof GoalConfig, t
 function setNonNegativeInt(input: Record<string, unknown>, key: keyof GoalConfig, target: GoalConfig, warnings: string[], source: string): void {
   if (!(key in input)) return;
   const value = input[key];
-  if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
-    (target[key] as number) = Math.floor(value);
+  const parsed = typeof value === "number" && Number.isFinite(value) ? Math.floor(value) : null;
+  if (parsed !== null && parsed >= 0) {
+    (target[key] as number) = parsed;
     return;
   }
   warnings.push(`${source}: ${key} must be a non-negative number.`);
@@ -136,8 +138,9 @@ function setOptionalPositiveInt(
     target[key] = null;
     return;
   }
-  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
-    target[key] = Math.floor(value);
+  const parsed = typeof value === "number" && Number.isFinite(value) ? Math.floor(value) : null;
+  if (parsed !== null && parsed > 0) {
+    target[key] = parsed;
     return;
   }
   warnings.push(`${source}: ${key} must be null or a positive number.`);
