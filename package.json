@@ -1,0 +1,66 @@
+{
+  "name": "pi-goals",
+  "version": "0.1.0",
+  "description": "Persisted branch-aware thread goals for Pi coding-agent sessions.",
+  "type": "module",
+  "author": "bnema",
+  "license": "MIT",
+  "keywords": [
+    "pi-package"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bnema/pi-goals.git"
+  },
+  "bugs": {
+    "url": "https://github.com/bnema/pi-goals/issues"
+  },
+  "homepage": "https://github.com/bnema/pi-goals#readme",
+  "pi": {
+    "extensions": [
+      "./extensions"
+    ]
+  },
+  "main": "./dist/src/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    },
+    "./extension": {
+      "types": "./dist/extensions/goal.d.ts",
+      "import": "./dist/extensions/goal.js"
+    }
+  },
+  "files": [
+    "dist",
+    "extensions",
+    "src",
+    "docs",
+    "LICENSE",
+    "README.md",
+    "package.json"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json",
+    "prepack": "npm run build"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": ">=0.78.0 <1",
+    "@earendil-works/pi-coding-agent": ">=0.78.0 <1",
+    "@earendil-works/pi-tui": ">=0.78.0 <1",
+    "typebox": ">=1.1.0 <2"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-ai": "^0.78.0",
+    "@earendil-works/pi-coding-agent": "^0.78.0",
+    "@earendil-works/pi-tui": "^0.78.0",
+    "@types/node": "^24.0.0",
+    "typebox": "^1.1.39",
+    "typescript": "^5.8.3",
+    "vitest": "^4.1.8"
+  }
+}
