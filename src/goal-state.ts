@@ -1,3 +1,11 @@
+import {
+  emptyGoalContext,
+  mergeGoalContextUpdate,
+  sanitizeGoalContextSnapshot,
+  type GoalContextSnapshot,
+  type GoalContextUpdate,
+} from "./goal-context.js";
+
 export const GOAL_STATE_CUSTOM_TYPE = "pi-goals/state";
 export const GOAL_CONTEXT_CUSTOM_TYPE = "pi-goals/context";
 
@@ -73,6 +81,7 @@ export interface GoalMutationRecord {
 export interface GoalStateV1 {
   schemaVersion: 1;
   goal: ThreadGoal | null;
+  context: GoalContextSnapshot;
   runtime: GoalRuntimeSnapshot;
   config: GoalConfigSnapshot;
   lastMutation: GoalMutationRecord | null;
@@ -81,6 +90,7 @@ export interface GoalStateV1 {
 interface RestorableGoalStateV1 {
   schemaVersion: 1;
   goal: ThreadGoal | null;
+  context?: unknown;
   runtime?: Partial<GoalRuntimeSnapshot>;
   config?: Partial<GoalConfigSnapshot>;
   lastMutation?: GoalMutationRecord | null;
@@ -154,6 +164,7 @@ export function emptyGoalState(config: Partial<GoalConfigSnapshot> = {}): GoalSt
   return {
     schemaVersion: 1,
     goal: null,
+    context: emptyGoalContext(),
     runtime: emptyRuntimeSnapshot(),
     config: { ...DEFAULT_GOAL_CONFIG, ...config },
     lastMutation: null,
@@ -216,7 +227,7 @@ export function createGoal(state: GoalStateV1, input: CreateGoalInput): GoalStat
 
 export function replaceGoal(state: GoalStateV1, input: CreateGoalInput): GoalStateV1 {
   return withMutation(
-    createGoal({ ...state, goal: null, runtime: emptyRuntimeSnapshot(), lastMutation: null }, input),
+    createGoal({ ...state, goal: null, context: emptyGoalContext(), runtime: emptyRuntimeSnapshot(), lastMutation: null }, input),
     "goal.replace",
     input.actor ?? "user",
     input.now ?? unixNow(),
@@ -303,6 +314,7 @@ export function clearGoal(state: GoalStateV1, options: TransitionOptions = {}): 
     {
       ...state,
       goal: null,
+      context: emptyGoalContext(),
       runtime: emptyRuntimeSnapshot(),
     },
     "goal.clear",
@@ -484,6 +496,22 @@ export function updateRuntime(
   );
 }
 
+export function updateGoalContext(
+  state: GoalStateV1,
+  input: GoalContextUpdate,
+  options: TransitionOptions & { replace?: boolean } = {},
+): GoalStateV1 {
+  const now = options.now ?? unixNow();
+  return withMutation(
+    { ...state, context: mergeGoalContextUpdate(state.context, input, options.replace ? { replace: true } : {}) },
+    "goal.context.update",
+    options.actor ?? "user",
+    now,
+    state.goal?.goalId ?? null,
+    options.details,
+  );
+}
+
 export function snapshotState(state: GoalStateV1): JsonSerializable {
   return JSON.parse(JSON.stringify(state)) as JsonSerializable;
 }
@@ -597,6 +625,7 @@ function normalizeRestoredState(state: RestorableGoalStateV1, config: Partial<Go
   return {
     schemaVersion: 1,
     goal: state.goal,
+    context: sanitizeGoalContextSnapshot(state.context),
     runtime: { ...emptyRuntimeSnapshot(), ...sanitizeRuntimeSnapshot(state.runtime) },
     config: { ...DEFAULT_GOAL_CONFIG, ...sanitizeConfigSnapshot(state.config), ...sanitizeConfigSnapshot(config) },
     lastMutation: state.lastMutation ?? null,

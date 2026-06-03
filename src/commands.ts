@@ -11,13 +11,15 @@ import {
   replaceGoal,
   resumeGoal,
   setGoalBudget,
+  updateGoalContext,
   type GoalStateV1,
 } from "./goal-state.js";
-import { parseGoalCommand } from "./parsing.js";
+import { parseGoalCommand, type GoalCommand } from "./parsing.js";
 import { goalClearedPrompt, goalPausedPrompt, objectiveUpdatedPrompt } from "./prompts.js";
 import type { PiGoalsStore } from "./types.js";
-import { goalHelpMarkdown, goalSummaryMarkdown, updateGoalUi } from "./ui.js";
+import { goalHelpMarkdown, goalSummaryMarkdown, goalSummaryWithContextMarkdown, updateGoalUi } from "./ui.js";
 import { normalizeObjective } from "./validation.js";
+import type { GoalContextUpdate } from "./goal-context.js";
 
 export interface CommandRegistrationApi {
   registerCommand(name: string, definition: { description: string; handler: (args: string, ctx: unknown) => Promise<void> }): void;
@@ -55,6 +57,31 @@ export async function handleGoalCommand(
   if (command.kind === "config") {
     const loaded = store.getLoadedConfig();
     return configHelp(config, loaded?.sources ?? []);
+  }
+
+  if (command.kind === "context") {
+    const state = store.getState();
+    updateGoalUi(ctx, state);
+    return goalSummaryWithContextMarkdown(state);
+  }
+
+  const contextMutation = contextMutationFor(command);
+  if (contextMutation) {
+    const state = accountElapsedTime(store.getState(), now);
+    const next = updateGoalContext(state, contextMutation.update, { actor: "user", now });
+    persist(pi, store, ctx, next);
+    notify(ctx, contextMutation.notification, "info");
+    return goalSummaryWithContextMarkdown(next);
+  }
+
+  if (command.kind === "context-clear") {
+    const confirmed = await confirmMutation(ctx, command.force, "Clear durable goal context?");
+    if (!confirmed) return "Goal context clear cancelled.";
+    const state = accountElapsedTime(store.getState(), now);
+    const next = updateGoalContext(state, { action: "context.clear" }, { actor: "user", now });
+    persist(pi, store, ctx, next);
+    notify(ctx, "Goal context cleared.", "info");
+    return goalSummaryWithContextMarkdown(next);
   }
 
   if (command.kind === "create") {
@@ -213,6 +240,25 @@ function notify(ctx: unknown, message: string, level: "info" | "warning"): void 
 
 function showCommandOutput(ctx: unknown, message: string): void {
   notify(ctx, message, "info");
+}
+
+function contextMutationFor(command: GoalCommand): { update: GoalContextUpdate; notification: string } | null {
+  if (command.kind === "ref-add") {
+    return {
+      update: { action: "ref.add", path: command.path, role: command.role, description: command.description },
+      notification: "Goal reference saved.",
+    };
+  }
+  if (command.kind === "instruction-add") {
+    return { update: { action: "instruction.add", text: command.text }, notification: "Goal instruction saved." };
+  }
+  if (command.kind === "criterion-add") {
+    return { update: { action: "criterion.add", text: command.text }, notification: "Goal criterion saved." };
+  }
+  if (command.kind === "reread-set") {
+    return { update: { action: "reread.set", policy: command.policy }, notification: "Goal reread policy saved." };
+  }
+  return null;
 }
 
 function unixNow(): number {

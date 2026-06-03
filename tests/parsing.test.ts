@@ -26,6 +26,31 @@ describe("parseGoalCommand", () => {
     expect(parseGoalCommand("pause")).toEqual({ kind: "pause" });
     expect(parseGoalCommand("resume")).toEqual({ kind: "resume" });
     expect(parseGoalCommand("clear --force")).toEqual({ kind: "clear", force: true });
+    expect(parseGoalCommand("context")).toEqual({ kind: "context" });
+    expect(parseGoalCommand("refs")).toEqual({ kind: "context" });
+    expect(parseGoalCommand("context clear --force")).toEqual({ kind: "context-clear", force: true });
+    expect(parseGoalCommand("ref add docs/spec.md --role spec --description product spec")).toEqual({
+      kind: "ref-add",
+      path: "docs/spec.md",
+      role: "spec",
+      description: "product spec",
+    });
+    expect(parseGoalCommand("instruction add keep changes minimal")).toEqual({
+      kind: "instruction-add",
+      text: "keep changes minimal",
+    });
+    expect(parseGoalCommand("criterion add targeted tests pass")).toEqual({
+      kind: "criterion-add",
+      text: "targeted tests pass",
+    });
+    expect(parseGoalCommand("reread on")).toEqual({
+      kind: "reread-set",
+      policy: { onResume: true, onContinuation: true, beforeCompletion: true },
+    });
+    expect(parseGoalCommand("reread continuation off")).toEqual({
+      kind: "reread-set",
+      policy: { onContinuation: false },
+    });
     expect(parseGoalCommand("budget 10k")).toEqual({ kind: "set-budget", tokenBudget: 10000 });
     expect(parseGoalCommand("budget clear --force")).toEqual({ kind: "clear-budget", force: true });
     expect(parseGoalCommand("--budget 1.5M write docs")).toEqual({
@@ -54,5 +79,11 @@ describe("parseGoalCommand", () => {
     expect(() => parseGoalCommand("--unknown thing")).toThrow(/Unknown/);
     expect(() => parseGoalCommand("--force")).toThrow(/Usage/);
     expect(() => parseGoalCommand("budget")).toThrow(/Usage/);
+    expect(() => parseGoalCommand("ref add")).toThrow(/Usage/);
+    expect(() => parseGoalCommand("ref add docs/spec.md --role unknown")).toThrow(/Invalid reference role/);
+    expect(() => parseGoalCommand("instruction add")).toThrow(/Usage/);
+    expect(() => parseGoalCommand("criterion add")).toThrow(/Usage/);
+    expect(() => parseGoalCommand("reread later")).toThrow(/Usage/);
+    expect(() => parseGoalCommand("reread resume maybe")).toThrow(/Invalid reread value/);
   });
 });

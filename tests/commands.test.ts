@@ -85,6 +85,52 @@ describe("/goal command", () => {
     }
   });
 
+  it("persists and displays durable goal context updates", async () => {
+    const pi = new FakePi();
+    const store = createGoalStore(emptyGoalState(snapshotConfig(DEFAULT_CONFIG)), DEFAULT_CONFIG);
+    const ctx = new FakeCtx();
+
+    const referenceOutput = await handleGoalCommand(pi, store, "ref add docs/spec.md --role spec --description product spec", ctx);
+    expect(referenceOutput).toContain("docs/spec.md");
+    expect(referenceOutput).toContain("product spec");
+    expect(JSON.stringify(store.getState())).toContain("docs/spec.md");
+    expect(store.getState().goal).toBeNull();
+    expect(store.getState().lastMutation?.goalId).toBeNull();
+
+    const instructionOutput = await handleGoalCommand(pi, store, "instruction add keep changes minimal", ctx);
+    expect(instructionOutput).toContain("keep changes minimal");
+    expect(JSON.stringify(store.getState())).toContain("keep changes minimal");
+    expect(store.getState().goal).toBeNull();
+    expect(store.getState().lastMutation?.goalId).toBeNull();
+
+    const criterionOutput = await handleGoalCommand(pi, store, "criterion add targeted tests pass", ctx);
+    expect(criterionOutput).toContain("targeted tests pass");
+    expect(JSON.stringify(store.getState())).toContain("targeted tests pass");
+    expect(store.getState().goal).toBeNull();
+    expect(store.getState().lastMutation?.goalId).toBeNull();
+
+    const rereadOutput = await handleGoalCommand(pi, store, "reread on", ctx);
+    expect(rereadOutput).toContain("on continuation: required");
+    expect(store.getState().context.rereadPolicy.beforeCompletion).toBe(true);
+    expect(store.getState().goal).toBeNull();
+    expect(store.getState().lastMutation?.goalId).toBeNull();
+
+    const contextBeforeRejectedClear = store.getState().context;
+    const entriesBeforeRejectedClear = pi.entries.length;
+    ctx.hasUI = false;
+    expect(await handleGoalCommand(pi, store, "context clear", ctx)).toBe("Goal context clear cancelled.");
+    expect(store.getState().context).toEqual(contextBeforeRejectedClear);
+    expect(pi.entries).toHaveLength(entriesBeforeRejectedClear);
+    ctx.hasUI = true;
+
+    ctx.confirms.push(false);
+    const clearedOutput = await handleGoalCommand(pi, store, "context clear --force", ctx);
+    expect(clearedOutput).toContain("No durable goal context.");
+    // The queued rejection remains, proving --force bypassed confirmation.
+    expect(ctx.confirms).toEqual([false]);
+    expect(pi.entries.length).toBeGreaterThanOrEqual(4);
+  });
+
   it("edits through ui.editor and steers running turns", async () => {
     const pi = new FakePi();
     const store = createGoalStore(emptyGoalState(snapshotConfig(DEFAULT_CONFIG)), DEFAULT_CONFIG);

@@ -67,6 +67,20 @@ The extension registers:
 
 `update_goal` accepts only `complete` or `blocked`. Blocking requires the same blocker key to recur three times through the blocked audit before the terminal `blocked` transition succeeds.
 
+## Durable Context
+
+Goals can carry compact durable context alongside the objective: reference document paths, standing instructions, acceptance criteria, and a reread policy. When present, `pi-goals` injects that packet into hidden goal prompts so later turns can keep using the same durable references.
+
+Reference document paths are injected as references only. `pi-goals` does not read those files automatically; if the reread policy asks for it, the agent must reread the referenced docs before coding, concluding, or calling `update_goal complete`.
+
+Useful commands:
+
+- `/goal ref add docs/spec.md --role spec --description "Primary spec"`
+- `/goal instruction add "Use Mockery for Go mocks"`
+- `/goal criterion add "Targeted tests pass"`
+- `/goal reread on`
+- `/goal context`
+
 ## Persistence
 
 Every goal mutation appends a custom session entry with `customType: "pi-goals/state"`. The extension reconstructs state from `ctx.sessionManager.getBranch()`, so `/tree`, `/fork`, `/clone`, `/resume`, and `/reload` restore the latest state on the active branch instead of leaking global latest state across branches.

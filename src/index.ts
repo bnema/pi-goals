@@ -9,6 +9,7 @@ export { handleGoalCommand } from "./commands.js";
 export { maybeScheduleContinuation, restoreFromSession } from "./lifecycle.js";
 export * from "./accounting.js";
 export * from "./config.js";
+export * from "./goal-context.js";
 export * from "./goal-state.js";
 export * from "./parsing.js";
 export * from "./prompts.js";
