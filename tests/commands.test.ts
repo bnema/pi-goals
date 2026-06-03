@@ -145,7 +145,11 @@ describe("/goal command", () => {
     expect(contextUpdate?.message.content).toContain("keep scope intact");
 
     await handleGoalCommand(pi, store, "context clear --force", ctx);
-    expect(pi.messages.filter((item) => item.message.customType === "pi-goals/context-updated")).toHaveLength(2);
+    expect(pi.messages.filter((item) => item.message.customType === "pi-goals/context-updated")).toHaveLength(1);
+    const contextClear = pi.messages.find((item) => item.message.customType === "pi-goals/context-cleared");
+    expect(contextClear?.options).toEqual({ deliverAs: "steer" });
+    expect(contextClear?.message.details).toEqual({ goalId: store.getState().goal?.goalId, contextCleared: true });
+    expect(contextClear?.message.content).toContain("Stop relying on prior durable reference docs");
   });
 
   it("edits through ui.editor and steers running turns", async () => {

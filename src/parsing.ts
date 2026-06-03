@@ -33,7 +33,7 @@ export class GoalParseError extends Error {
   }
 }
 
-const RESERVED = new Set([
+const RESERVED_VALUES = [
   "status",
   "help",
   "edit",
@@ -51,7 +51,11 @@ const RESERVED = new Set([
   "--budget",
   "--tokens",
   "--force",
-]);
+] as const;
+
+const RESERVED = new Set<string>(RESERVED_VALUES);
+const FORCEABLE_RESERVED = new Set<string>(["clear", "context", "budget", "--budget", "--tokens", "--force"]);
+const NON_FORCEABLE_RESERVED = new Set<string>(RESERVED_VALUES.filter((value) => !FORCEABLE_RESERVED.has(value)));
 
 export function parseGoalCommand(args: string): GoalCommand {
   const tokens = splitArgs(args);
@@ -65,7 +69,7 @@ export function parseGoalCommand(args: string): GoalCommand {
   }
   const [first] = tokens;
 
-  if (prefixForce && first && ["status", "help", "config", "edit", "pause", "resume", "refs", "ref", "instruction", "criterion", "reread"].includes(first)) {
+  if (prefixForce && first && NON_FORCEABLE_RESERVED.has(first)) {
     throw new GoalParseError("Usage: /goal --force <objective|clear|context clear|budget clear>.");
   }
 

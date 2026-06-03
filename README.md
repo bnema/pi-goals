@@ -52,7 +52,7 @@ The package manifest declares:
 /goal reread on|off
 /goal reread resume|continuation|completion|before-completion on|off
 /goal context
-/goal context clear
+/goal context clear [--force]
 /goal clear
 /goal help
 /goal config
@@ -60,7 +60,7 @@ The package manifest declares:
 
 Budget tokens accept plain integers plus `k` and `m` suffixes, such as `200000`, `200k`, `98.5K`, and `1.5M`.
 
-Confirmation-required commands fail closed in non-interactive mode unless `--force` is supplied. This applies to replacing unfinished goals, clearing unfinished goals, and clearing a budget-limited goal's budget.
+Confirmation-required commands fail closed in non-interactive mode unless `--force` is supplied. This applies to replacing unfinished goals, clearing unfinished goals, clearing durable goal context with `/goal context clear --force`, and clearing a budget-limited goal's budget.
 
 ## Model Tools
 
@@ -89,7 +89,7 @@ Useful commands:
 - Toggle rereads globally with `/goal reread on|off`.
 - Toggle rereads per lifecycle point with `/goal reread resume|continuation|completion|before-completion on|off`.
 - View durable context with `/goal context`.
-- Clear durable context with `/goal context clear`.
+- Clear durable context with `/goal context clear`; use `/goal context clear --force` in non-interactive CI or scripted flows.
 
 Examples:
 

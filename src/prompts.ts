@@ -59,6 +59,16 @@ export function goalClearedPrompt(): string {
   return "The user cleared the active pi-goals objective. Stop using prior goal context and wait for user input.";
 }
 
+export function goalContextClearedPrompt(goal: ThreadGoal): string {
+  return promptBlocks([
+    "The user cleared the durable pi-goals context during the current agent cycle.",
+    objectiveBlock(goal),
+    usageBlock(goal),
+    "Stop relying on prior durable reference docs, standing instructions, acceptance criteria, and reread policy. Continue from the active objective only.",
+    "Do not call update_goal unless the objective is actually complete.",
+  ]);
+}
+
 export function goalContextUpdatedPrompt(goal: ThreadGoal, context: GoalContextSnapshot): string {
   return promptBlocks([
     "The user updated the durable pi-goals context during the current agent cycle.",

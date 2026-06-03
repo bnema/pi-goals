@@ -15,7 +15,7 @@ import {
   type GoalStateV1,
 } from "./goal-state.js";
 import { parseGoalCommand, type GoalCommand } from "./parsing.js";
-import { goalClearedPrompt, goalContextUpdatedPrompt, goalPausedPrompt, objectiveUpdatedPrompt } from "./prompts.js";
+import { goalClearedPrompt, goalContextClearedPrompt, goalContextUpdatedPrompt, goalPausedPrompt, objectiveUpdatedPrompt } from "./prompts.js";
 import type { PiGoalsStore } from "./types.js";
 import { goalHelpMarkdown, goalSummaryMarkdown, goalSummaryWithContextMarkdown, updateGoalUi } from "./ui.js";
 import { normalizeObjective } from "./validation.js";
@@ -81,7 +81,7 @@ export async function handleGoalCommand(
     const state = accountElapsedTime(store.getState(), now);
     const next = updateGoalContext(state, { action: "context.clear" }, { actor: "user", now });
     persist(pi, store, ctx, next);
-    sendGoalContextUpdatedSteer(pi, ctx, next);
+    sendGoalContextClearedSteer(pi, ctx, next);
     notify(ctx, "Goal context cleared.", "info");
     return goalSummaryWithContextMarkdown(next);
   }
@@ -248,6 +248,19 @@ function sendGoalContextUpdatedSteer(pi: Pick<CommandRegistrationApi, "sendMessa
       content: goalContextUpdatedPrompt(state.goal, state.context),
       display: false,
       details: { goalId: state.goal.goalId },
+    },
+    { deliverAs: "steer" },
+  );
+}
+
+function sendGoalContextClearedSteer(pi: Pick<CommandRegistrationApi, "sendMessage">, ctx: unknown, state: GoalStateV1): void {
+  if (state.goal?.status !== "active" || isIdle(ctx)) return;
+  pi.sendMessage?.(
+    {
+      customType: "pi-goals/context-cleared",
+      content: goalContextClearedPrompt(state.goal),
+      display: false,
+      details: { goalId: state.goal.goalId, contextCleared: true },
     },
     { deliverAs: "steer" },
   );
