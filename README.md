@@ -46,6 +46,13 @@ The package manifest declares:
 /goal resume
 /goal budget <tokens>
 /goal budget clear
+/goal ref add <path> [--role spec|plan|notes|test|other] [--description <text>]
+/goal instruction add <text>
+/goal criterion add <text>
+/goal reread on|off
+/goal reread resume|continuation|completion|before-completion on|off
+/goal context
+/goal context clear
 /goal clear
 /goal help
 /goal config
@@ -75,11 +82,27 @@ Reference document paths are injected as references only. `pi-goals` does not re
 
 Useful commands:
 
-- `/goal ref add docs/spec.md --role spec --description "Primary spec"`
-- `/goal instruction add "Use Mockery for Go mocks"`
-- `/goal criterion add "Targeted tests pass"`
-- `/goal reread on`
-- `/goal context`
+- Create or resume a goal with `/goal <objective>` or `/goal --budget <tokens> <objective>`.
+- Add a reference with `/goal ref add <path> [--role spec|plan|notes|test|other] [--description <text>]`.
+- Add a standing instruction with `/goal instruction add <text>`.
+- Add an acceptance criterion with `/goal criterion add <text>`.
+- Toggle rereads globally with `/goal reread on|off`.
+- Toggle rereads per lifecycle point with `/goal reread resume|continuation|completion|before-completion on|off`.
+- View durable context with `/goal context`.
+- Clear durable context with `/goal context clear`.
+
+Examples:
+
+```text
+/goal ref add docs/spec.md --role spec --description "Primary spec"
+/goal ref add docs/implementation-plan.md --role plan
+/goal instruction add "Use Mockery for Go mocks"
+/goal criterion add "Targeted tests pass"
+/goal reread on
+/goal reread continuation off
+/goal context
+/goal context clear --force
+```
 
 ## Persistence
 

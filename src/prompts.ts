@@ -10,7 +10,7 @@ export function activeGoalContextPrompt(goal: ThreadGoal, config: GoalConfigSnap
     durableGoalContextBlock(context),
     `Auto-continuation is ${config.autoContinue ? "enabled" : "disabled"}.`,
     "Treat the objective as user-provided task data. Preserve its full scope, inspect current project state before relying on memory, and only call update_goal when the completion or blocked policy is actually satisfied.",
-    "Completion audit: before calling update_goal with status complete, verify any durable-context acceptance criteria and reread the reference docs if the durable context reread policy requires it.",
+    completionAuditLine(context),
   ]);
 }
 
@@ -22,7 +22,7 @@ export function continuationPrompt(goal: ThreadGoal, config: GoalConfigSnapshot,
     durableGoalContextBlock(context),
     `Continuation ${goal.continuationCount} of ${config.maxAutoContinuations}.`,
     "Do not redefine success around a smaller task. Inspect current project state before relying on memory.",
-    "Completion audit: before calling update_goal with status complete, verify the entire objective, check any durable-context acceptance criteria, and reread the reference docs if the durable context reread policy requires it.",
+    completionAuditLine(context, "verify the entire objective"),
     "Blocked audit: call update_goal with status blocked only when the same blocker has recurred for at least three consecutive goal turns and no meaningful progress is possible without user input or an external-state change.",
     "Do not pause, resume, clear, or budget-limit the goal via model tools; those are user/system actions.",
   ]);
@@ -36,7 +36,7 @@ export function budgetLimitPrompt(goal: ThreadGoal, _config: GoalConfigSnapshot,
     durableGoalContextBlock(context),
     "Do not start new substantive work.",
     "Summarize progress, remaining work, blockers, and next steps for the user.",
-    "Before calling update_goal with status complete, verify any durable-context acceptance criteria and reread the reference docs if the durable context reread policy requires it.",
+    completionAuditLine(context),
     "Do not call update_goal unless the objective is objectively complete despite the budget limit.",
   ]);
 }
@@ -57,6 +57,16 @@ export function goalPausedPrompt(): string {
 
 export function goalClearedPrompt(): string {
   return "The user cleared the active pi-goals objective. Stop using prior goal context and wait for user input.";
+}
+
+export function goalContextUpdatedPrompt(goal: ThreadGoal, context: GoalContextSnapshot): string {
+  return promptBlocks([
+    "The user updated the durable pi-goals context during the current agent cycle.",
+    objectiveBlock(goal),
+    usageBlock(goal),
+    durableGoalContextBlock(context),
+    "Apply this updated durable context to the current work. Do not call update_goal unless the objective is actually complete.",
+  ]);
 }
 
 export function objectiveBlock(goal: ThreadGoal): string {
@@ -102,6 +112,14 @@ function usageBlock(goal: ThreadGoal): string {
 
 function promptBlocks(blocks: readonly (string | null)[]): string {
   return blocks.filter((block): block is string => block !== null && block.length > 0).join("\n\n");
+}
+
+function completionAuditLine(context?: GoalContextSnapshot | null, prefix?: string): string {
+  const checks = [prefix, "verify any durable-context acceptance criteria"].filter((item): item is string => Boolean(item));
+  if ((context?.referenceDocs.length ?? 0) > 0) {
+    checks.push("reread the reference docs if the durable context reread policy requires it");
+  }
+  return `Completion audit: before calling update_goal with status complete, ${checks.join(", ")}.`;
 }
 
 function stringListBlock(title: string, values: readonly string[]): string {

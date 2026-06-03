@@ -70,15 +70,19 @@ describe("hidden prompt templates", () => {
   it("does not ask for document rereads when no reference docs exist", () => {
     const state = createGoal(emptyGoalState(), { objective: "policy only", goalId: "g1", now: 10 });
     const goal = state.goal!;
-    const prompt = continuationPrompt(goal, state.config, {
+    const context = {
       referenceDocs: [],
       standingInstructions: ["Keep scope intact"],
       acceptanceCriteria: [],
       rereadPolicy: { onResume: true, onContinuation: true, beforeCompletion: true },
-    });
+    };
+    const prompts = [activeGoalContextPrompt(goal, state.config, context), continuationPrompt(goal, state.config, context), budgetLimitPrompt(goal, state.config, context)];
 
-    expect(prompt).toContain(JSON.stringify("Keep scope intact"));
-    expect(prompt).not.toContain("Reread policy");
-    expect(prompt).not.toContain("reread the referenced docs");
+    for (const prompt of prompts) {
+      expect(prompt).toContain(JSON.stringify("Keep scope intact"));
+      expect(prompt).not.toContain("Reread policy");
+      expect(prompt).not.toContain("reread the referenced docs");
+      expect(prompt).not.toContain("reread the reference docs");
+    }
   });
 });

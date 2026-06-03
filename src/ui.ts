@@ -82,16 +82,16 @@ export function goalContextMarkdown(state: GoalStateV1): string {
   if (referenceDocs.length > 0) {
     lines.push("", "References:");
     for (const reference of referenceDocs) {
-      lines.push(`- ${reference.path} (${reference.role})${reference.description ? `: ${reference.description}` : ""}`);
+      lines.push(`- ${singleLineMarkdownValue(reference.path)} (${reference.role})${reference.description ? `: ${singleLineMarkdownValue(reference.description)}` : ""}`);
     }
   }
   if (standingInstructions.length > 0) {
     lines.push("", "Standing instructions:");
-    for (const instruction of standingInstructions) lines.push(`- ${instruction}`);
+    for (const instruction of standingInstructions) lines.push(`- ${singleLineMarkdownValue(instruction)}`);
   }
   if (acceptanceCriteria.length > 0) {
     lines.push("", "Acceptance criteria:");
-    for (const criterion of acceptanceCriteria) lines.push(`- ${criterion}`);
+    for (const criterion of acceptanceCriteria) lines.push(`- ${singleLineMarkdownValue(criterion)}`);
   }
   if (referenceDocs.length > 0 || hasRereadPolicy) {
     lines.push("", "Reread policy:");
@@ -127,11 +127,13 @@ export function goalHelpMarkdown(): string {
     "- `/goal resume`",
     "- `/goal budget <tokens>`",
     "- `/goal budget clear`",
-    `- \`/goal ref add <path> [--role ${GOAL_REFERENCE_DOC_ROLES.join("|")}]\``,
+    `- \`/goal ref add <path> [--role ${GOAL_REFERENCE_DOC_ROLES.join("|")}] [--description <text>]\``,
     "- `/goal instruction add <text>`",
     "- `/goal criterion add <text>`",
     "- `/goal reread on|off`",
+    "- `/goal reread resume|continuation|completion|before-completion on|off`",
     "- `/goal context`",
+    "- `/goal context clear`",
     "- `/goal clear`",
     "- `/goal config`",
     "",
@@ -140,6 +142,10 @@ export function goalHelpMarkdown(): string {
     "- `create_goal` creates a goal only when explicitly requested and no goal exists.",
     "- `update_goal` accepts only `complete` or strict repeated-blocker `blocked`.",
   ].join("\n");
+}
+
+function singleLineMarkdownValue(value: string): string {
+  return JSON.stringify(value);
 }
 
 export function updateGoalUi(ctx: unknown, state: GoalStateV1): void {

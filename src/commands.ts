@@ -15,7 +15,7 @@ import {
   type GoalStateV1,
 } from "./goal-state.js";
 import { parseGoalCommand, type GoalCommand } from "./parsing.js";
-import { goalClearedPrompt, goalPausedPrompt, objectiveUpdatedPrompt } from "./prompts.js";
+import { goalClearedPrompt, goalContextUpdatedPrompt, goalPausedPrompt, objectiveUpdatedPrompt } from "./prompts.js";
 import type { PiGoalsStore } from "./types.js";
 import { goalHelpMarkdown, goalSummaryMarkdown, goalSummaryWithContextMarkdown, updateGoalUi } from "./ui.js";
 import { normalizeObjective } from "./validation.js";
@@ -70,6 +70,7 @@ export async function handleGoalCommand(
     const state = accountElapsedTime(store.getState(), now);
     const next = updateGoalContext(state, contextMutation.update, { actor: "user", now });
     persist(pi, store, ctx, next);
+    sendGoalContextUpdatedSteer(pi, ctx, next);
     notify(ctx, contextMutation.notification, "info");
     return goalSummaryWithContextMarkdown(next);
   }
@@ -80,6 +81,7 @@ export async function handleGoalCommand(
     const state = accountElapsedTime(store.getState(), now);
     const next = updateGoalContext(state, { action: "context.clear" }, { actor: "user", now });
     persist(pi, store, ctx, next);
+    sendGoalContextUpdatedSteer(pi, ctx, next);
     notify(ctx, "Goal context cleared.", "info");
     return goalSummaryWithContextMarkdown(next);
   }
@@ -236,6 +238,19 @@ function isIdle(ctx: unknown): boolean {
 
 function notify(ctx: unknown, message: string, level: "info" | "warning"): void {
   (ctx as { ui?: { notify?: (message: string, level?: string) => void } }).ui?.notify?.(message, level);
+}
+
+function sendGoalContextUpdatedSteer(pi: Pick<CommandRegistrationApi, "sendMessage">, ctx: unknown, state: GoalStateV1): void {
+  if (state.goal?.status !== "active" || isIdle(ctx)) return;
+  pi.sendMessage?.(
+    {
+      customType: "pi-goals/context-updated",
+      content: goalContextUpdatedPrompt(state.goal, state.context),
+      display: false,
+      details: { goalId: state.goal.goalId },
+    },
+    { deliverAs: "steer" },
+  );
 }
 
 function showCommandOutput(ctx: unknown, message: string): void {

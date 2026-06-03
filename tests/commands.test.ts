@@ -93,19 +93,19 @@ describe("/goal command", () => {
     const referenceOutput = await handleGoalCommand(pi, store, "ref add docs/spec.md --role spec --description product spec", ctx);
     expect(referenceOutput).toContain("docs/spec.md");
     expect(referenceOutput).toContain("product spec");
-    expect(JSON.stringify(store.getState())).toContain("docs/spec.md");
+    expect(store.getState().context.referenceDocs).toEqual([{ path: "docs/spec.md", role: "spec", description: "product spec" }]);
     expect(store.getState().goal).toBeNull();
     expect(store.getState().lastMutation?.goalId).toBeNull();
 
     const instructionOutput = await handleGoalCommand(pi, store, "instruction add keep changes minimal", ctx);
     expect(instructionOutput).toContain("keep changes minimal");
-    expect(JSON.stringify(store.getState())).toContain("keep changes minimal");
+    expect(store.getState().context.standingInstructions).toContain("keep changes minimal");
     expect(store.getState().goal).toBeNull();
     expect(store.getState().lastMutation?.goalId).toBeNull();
 
     const criterionOutput = await handleGoalCommand(pi, store, "criterion add targeted tests pass", ctx);
     expect(criterionOutput).toContain("targeted tests pass");
-    expect(JSON.stringify(store.getState())).toContain("targeted tests pass");
+    expect(store.getState().context.acceptanceCriteria).toContain("targeted tests pass");
     expect(store.getState().goal).toBeNull();
     expect(store.getState().lastMutation?.goalId).toBeNull();
 
@@ -115,7 +115,7 @@ describe("/goal command", () => {
     expect(store.getState().goal).toBeNull();
     expect(store.getState().lastMutation?.goalId).toBeNull();
 
-    const contextBeforeRejectedClear = store.getState().context;
+    const contextBeforeRejectedClear = structuredClone(store.getState().context);
     const entriesBeforeRejectedClear = pi.entries.length;
     ctx.hasUI = false;
     expect(await handleGoalCommand(pi, store, "context clear", ctx)).toBe("Goal context clear cancelled.");
@@ -129,6 +129,23 @@ describe("/goal command", () => {
     // The queued rejection remains, proving --force bypassed confirmation.
     expect(ctx.confirms).toEqual([false]);
     expect(pi.entries.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it("steers running turns after durable context changes", async () => {
+    const pi = new FakePi();
+    const store = createGoalStore(emptyGoalState(snapshotConfig(DEFAULT_CONFIG)), DEFAULT_CONFIG);
+    const ctx = new FakeCtx();
+    ctx.idle = false;
+
+    await handleGoalCommand(pi, store, "ship durable context", ctx);
+    await handleGoalCommand(pi, store, "instruction add keep scope intact", ctx);
+
+    const contextUpdate = pi.messages.find((item) => item.message.customType === "pi-goals/context-updated");
+    expect(contextUpdate?.options).toEqual({ deliverAs: "steer" });
+    expect(contextUpdate?.message.content).toContain("keep scope intact");
+
+    await handleGoalCommand(pi, store, "context clear --force", ctx);
+    expect(pi.messages.filter((item) => item.message.customType === "pi-goals/context-updated")).toHaveLength(2);
   });
 
   it("edits through ui.editor and steers running turns", async () => {

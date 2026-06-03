@@ -29,6 +29,7 @@ describe("parseGoalCommand", () => {
     expect(parseGoalCommand("context")).toEqual({ kind: "context" });
     expect(parseGoalCommand("refs")).toEqual({ kind: "context" });
     expect(parseGoalCommand("context clear --force")).toEqual({ kind: "context-clear", force: true });
+    expect(parseGoalCommand("--force context clear")).toEqual({ kind: "context-clear", force: true });
     expect(parseGoalCommand("ref add docs/spec.md --role spec --description product spec")).toEqual({
       kind: "ref-add",
       path: "docs/spec.md",
@@ -53,6 +54,7 @@ describe("parseGoalCommand", () => {
     });
     expect(parseGoalCommand("budget 10k")).toEqual({ kind: "set-budget", tokenBudget: 10000 });
     expect(parseGoalCommand("budget clear --force")).toEqual({ kind: "clear-budget", force: true });
+    expect(parseGoalCommand("--force budget clear")).toEqual({ kind: "clear-budget", force: true });
     expect(parseGoalCommand("--budget 1.5M write docs")).toEqual({
       kind: "create",
       objective: "write docs",
@@ -71,6 +73,12 @@ describe("parseGoalCommand", () => {
       tokenBudget: null,
       force: false,
     });
+    expect(parseGoalCommand("--force ship the plugin")).toEqual({
+      kind: "create",
+      objective: "ship the plugin",
+      tokenBudget: null,
+      force: true,
+    });
   });
 
   it("handles shell-like splitting and reserved invalid forms", () => {
@@ -78,12 +86,32 @@ describe("parseGoalCommand", () => {
     expect(() => splitArgs("'unterminated")).toThrow();
     expect(() => parseGoalCommand("--unknown thing")).toThrow(/Unknown/);
     expect(() => parseGoalCommand("--force")).toThrow(/Usage/);
+    expect(() => parseGoalCommand("--force context")).toThrow(/Usage/);
+    expect(() => parseGoalCommand("--force budget 10k")).toThrow(/Usage/);
     expect(() => parseGoalCommand("budget")).toThrow(/Usage/);
     expect(() => parseGoalCommand("ref add")).toThrow(/Usage/);
+    expect(() => parseGoalCommand("ref add --role spec")).toThrow(/Usage/);
     expect(() => parseGoalCommand("ref add docs/spec.md --role unknown")).toThrow(/Invalid reference role/);
     expect(() => parseGoalCommand("instruction add")).toThrow(/Usage/);
     expect(() => parseGoalCommand("criterion add")).toThrow(/Usage/);
     expect(() => parseGoalCommand("reread later")).toThrow(/Usage/);
     expect(() => parseGoalCommand("reread resume maybe")).toThrow(/Invalid reread value/);
+  });
+
+  it("preserves --force as user text in commands that do not consume it", () => {
+    expect(parseGoalCommand("instruction add --force keep retries off")).toEqual({
+      kind: "instruction-add",
+      text: "--force keep retries off",
+    });
+    expect(parseGoalCommand("criterion add verify --force handling")).toEqual({
+      kind: "criterion-add",
+      text: "verify --force handling",
+    });
+    expect(parseGoalCommand("ref add docs/spec.md --description --force required")).toEqual({
+      kind: "ref-add",
+      path: "docs/spec.md",
+      role: "other",
+      description: "--force required",
+    });
   });
 });

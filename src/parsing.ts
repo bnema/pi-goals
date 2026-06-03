@@ -57,9 +57,17 @@ export function parseGoalCommand(args: string): GoalCommand {
   const tokens = splitArgs(args);
   if (tokens.length === 0) return { kind: "summary" };
 
-  const force = removeFlag(tokens, "--force");
-  if (force && tokens.length === 0) throw new GoalParseError("Usage: /goal --force <objective|clear|budget clear>.");
+  let prefixForce = false;
+  if (tokens[0] === "--force") {
+    prefixForce = true;
+    tokens.shift();
+    if (tokens.length === 0) throw new GoalParseError("Usage: /goal --force <objective|clear|context clear|budget clear>.");
+  }
   const [first] = tokens;
+
+  if (prefixForce && first && ["status", "help", "config", "edit", "pause", "resume", "refs", "ref", "instruction", "criterion", "reread"].includes(first)) {
+    throw new GoalParseError("Usage: /goal --force <objective|clear|context clear|budget clear>.");
+  }
 
   if (first === "status") return assertNoExtra(tokens, { kind: "status" });
   if (first === "help") return assertNoExtra(tokens, { kind: "help" });
@@ -67,11 +75,18 @@ export function parseGoalCommand(args: string): GoalCommand {
   if (first === "edit") return assertNoExtra(tokens, { kind: "edit" });
   if (first === "pause") return assertNoExtra(tokens, { kind: "pause" });
   if (first === "resume") return assertNoExtra(tokens, { kind: "resume" });
-  if (first === "clear") return assertNoExtra(tokens, { kind: "clear", force });
+  if (first === "clear") {
+    const force = prefixForce || removeFlag(tokens, "--force");
+    return assertNoExtra(tokens, { kind: "clear", force });
+  }
 
   if (first === "context") {
+    if (tokens.length === 1 && prefixForce) throw new GoalParseError("Usage: /goal --force <objective|clear|context clear|budget clear>.");
     if (tokens.length === 1) return { kind: "context" };
-    if (tokens.length === 2 && tokens[1] === "clear") return { kind: "context-clear", force };
+    if (tokens[1] === "clear") {
+      const force = prefixForce || removeFlag(tokens, "--force");
+      if (tokens.length === 2) return { kind: "context-clear", force };
+    }
     throw new GoalParseError("Usage: /goal context or /goal context clear --force.");
   }
   if (first === "refs") return assertNoExtra(tokens, { kind: "context" });
@@ -81,12 +96,17 @@ export function parseGoalCommand(args: string): GoalCommand {
   if (first === "reread") return parseRereadCommand(tokens);
 
   if (first === "budget") {
-    if (tokens.length === 2 && tokens[1] === "clear") return { kind: "clear-budget", force };
+    if (tokens[1] === "clear") {
+      const force = prefixForce || removeFlag(tokens, "--force");
+      if (tokens.length === 2) return { kind: "clear-budget", force };
+    }
+    if (prefixForce) throw new GoalParseError("Usage: /goal --force <objective|clear|context clear|budget clear>.");
     if (tokens.length === 2) return { kind: "set-budget", tokenBudget: parseBudget(tokens[1] ?? "") };
     throw new GoalParseError("Usage: /goal budget <tokens> or /goal budget clear.");
   }
 
   if (first === "--budget" || first === "--tokens") {
+    const force = prefixForce || removeFlag(tokens, "--force");
     if (tokens.length < 3) throw new GoalParseError(`Usage: /goal ${first} <tokens> <objective>.`);
     const budgetToken = tokens[1] ?? "";
     const objective = tokens.slice(2).join(" ");
@@ -101,6 +121,8 @@ export function parseGoalCommand(args: string): GoalCommand {
     throw new GoalParseError(`Reserved /goal subcommand cannot be used as an objective: ${first}.`);
   }
 
+  const force = prefixForce || removeFlag(tokens, "--force");
+  if (tokens.length === 0) throw new GoalParseError("Usage: /goal --force <objective|clear|context clear|budget clear>.");
   return { kind: "create", objective: tokens.join(" "), tokenBudget: null, force };
 }
 
@@ -169,7 +191,7 @@ function parseRefCommand(tokens: string[]): GoalCommand {
   const roleUsage = GOAL_REFERENCE_DOC_ROLES.join("|");
   if (tokens[1] !== "add") throw new GoalParseError(`Usage: /goal ref add <path> [--role ${roleUsage}] [--description text...].`);
   const path = tokens[2];
-  if (!path) throw new GoalParseError(`Usage: /goal ref add <path> [--role ${roleUsage}] [--description text...].`);
+  if (!path || path.startsWith("--")) throw new GoalParseError(`Usage: /goal ref add <path> [--role ${roleUsage}] [--description text...].`);
 
   let role: GoalReferenceDocRole = "other";
   let description: string | null = null;
