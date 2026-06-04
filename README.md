@@ -70,7 +70,7 @@ The extension registers:
 - `create_goal`
 - `update_goal`
 
-`create_goal` only works when no goal exists and should only be used when the user explicitly asked to create a persisted goal.
+`create_goal` works when no goal exists or when the current goal is already complete, and should only be used when the user explicitly asked to create a persisted goal. It refuses to replace unfinished goals; use `/goal` replacement commands for those.
 
 `update_goal` accepts only `complete` or `blocked`. Blocking requires the same blocker key to recur three times through the blocked audit before the terminal `blocked` transition succeeds.
 
