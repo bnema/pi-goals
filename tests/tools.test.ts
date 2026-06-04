@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CONFIG, snapshotConfig } from "../src/config.js";
-import { createGoal, emptyGoalState, pauseGoal } from "../src/goal-state.js";
+import { blockGoal, budgetLimitGoal, completeGoal, createGoal, emptyGoalState, pauseGoal, updateGoalContext, usageLimitGoal } from "../src/goal-state.js";
 import { registerGoalTools } from "../src/tools.js";
 import { createGoalStore } from "../src/types.js";
 import { FakeCtx, FakePi } from "./fakes.js";
@@ -17,7 +17,51 @@ describe("goal tools", () => {
 
     const created = await pi.tools.get("create_goal")!.execute("id", { objective: "ship", token_budget: 100 }, undefined, undefined, ctx);
     expect(JSON.stringify(created)).toContain("ship");
-    await expect(pi.tools.get("create_goal")!.execute("id", { objective: "again" }, undefined, undefined, ctx)).rejects.toThrow(/already exists/);
+    await expect(pi.tools.get("create_goal")!.execute("id", { objective: "again" }, undefined, undefined, ctx)).rejects.toThrow(/unfinished goal already exists/);
+  });
+
+  it("allows create_goal to start a new goal after the previous goal is complete", async () => {
+    const pi = new FakePi();
+    const completed = completeGoal(
+      updateGoalContext(
+        createGoal(emptyGoalState(snapshotConfig(DEFAULT_CONFIG)), { objective: "done", goalId: "g1", now: 10 }),
+        { action: "ref.add", path: "docs/spec.md", role: "spec" },
+        { now: 11 },
+      ),
+      { now: 12 },
+    );
+    const store = createGoalStore(completed, DEFAULT_CONFIG);
+    registerGoalTools(pi, store);
+    const ctx = new FakeCtx();
+
+    const created = await pi.tools.get("create_goal")!.execute("id", { objective: "next" }, undefined, undefined, ctx);
+
+    expect(JSON.stringify(created)).toContain("next");
+    expect(store.getState().goal?.objective).toBe("next");
+    expect(store.getState().goal?.status).toBe("active");
+    expect(store.getState().context.referenceDocs).toEqual([]);
+    expect(store.getState().lastMutation?.type).toBe("goal.replace");
+    expect(pi.entries).toHaveLength(1);
+  });
+
+  it.each([
+    ["blocked", blockGoal],
+    ["usage_limited", usageLimitGoal],
+    ["budget_limited", budgetLimitGoal],
+  ] as const)("rejects create_goal when the existing goal is %s", async (_status, transition) => {
+    const pi = new FakePi();
+    const state = transition(createGoal(emptyGoalState(snapshotConfig(DEFAULT_CONFIG)), { objective: "unfinished", goalId: "g1", now: 10 }), {
+      now: 11,
+    });
+    const store = createGoalStore(state, DEFAULT_CONFIG);
+    registerGoalTools(pi, store);
+    const ctx = new FakeCtx();
+
+    await expect(pi.tools.get("create_goal")!.execute("id", { objective: "next" }, undefined, undefined, ctx)).rejects.toThrow(
+      /unfinished goal already exists/,
+    );
+    expect(store.getState().goal?.objective).toBe("unfinished");
+    expect(pi.entries).toHaveLength(0);
   });
 
   it("rejects invalid update statuses and completes with usage report", async () => {

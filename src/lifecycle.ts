@@ -57,7 +57,7 @@ export function registerGoalLifecycle(pi: LifecycleApi, store: PiGoalsStore): vo
     if (state.goal?.status !== "active") return undefined;
     const message = {
       customType: GOAL_CONTEXT_CUSTOM_TYPE,
-      content: activeGoalContextPrompt(state.goal, state.config),
+      content: activeGoalContextPrompt(state.goal, state.config, state.context),
       display: false,
       details: { goalId: state.goal.goalId },
     };
@@ -147,7 +147,7 @@ export function maybeScheduleContinuation(pi: Pick<LifecycleApi, "sendMessage" |
     if (state.runtime.wrapUpScheduledForGoalId === goal.goalId) return false;
     const message = {
       customType: "pi-goals/budget-wrapup",
-      content: budgetLimitPrompt(goal, state.config),
+      content: budgetLimitPrompt(goal, state.config, state.context),
       display: false,
       details: { goalId: goal.goalId },
     };
@@ -201,7 +201,7 @@ export function maybeScheduleContinuation(pi: Pick<LifecycleApi, "sendMessage" |
   if (!scheduledGoal) return false;
   const message = {
     customType: "pi-goals/continuation",
-    content: continuationPrompt(scheduledGoal, next.config),
+    content: continuationPrompt(scheduledGoal, next.config, next.context),
     display: false,
     details: { goalId: goal.goalId, requestId },
   };

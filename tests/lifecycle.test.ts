@@ -11,6 +11,7 @@ import {
   pauseGoal,
   recordBlockedAttempt,
   snapshotState,
+  updateGoalContext,
 } from "../src/goal-state.js";
 import { maybeScheduleContinuation, registerPiGoals } from "../src/index.js";
 import { createGoalStore } from "../src/types.js";
@@ -63,8 +64,11 @@ describe("lifecycle restore and accounting", () => {
     registerPiGoals(pi);
     const ctx = new FakeCtx();
     await pi.commands.get("goal")!.handler("work", ctx);
+    await pi.commands.get("goal")!.handler("ref add docs/spec.md --role spec --description durable spec", ctx);
     const results = await pi.emit("before_agent_start", {}, ctx);
     expect(JSON.stringify(results)).toContain("pi-goals/context");
+    expect(JSON.stringify(results)).toContain("docs/spec.md");
+    expect(JSON.stringify(results)).toContain("durable spec");
   });
 
   it("accounts usage, applies budget, and schedules budget wrap-up once", async () => {
@@ -72,12 +76,19 @@ describe("lifecycle restore and accounting", () => {
     registerPiGoals(pi);
     const ctx = new FakeCtx();
     await pi.commands.get("goal")!.handler("--budget 10 work", ctx);
+    await pi.commands.get("goal")!.handler("ref add docs/spec.md --role spec --description budget spec", ctx);
+    await pi.commands.get("goal")!.handler("criterion add budget wrap-up checks durable context", ctx);
+    await pi.commands.get("goal")!.handler("reread completion on", ctx);
     await pi.emit("turn_start", {}, ctx);
     await pi.emit("message_end", { usage: { input: 5, output: 5 }, text: "made progress on the current implementation with real output" }, ctx);
     await pi.emit("turn_end", {}, ctx);
     await pi.emit("agent_end", {}, ctx);
     await pi.emit("agent_end", {}, ctx);
-    expect(pi.messages.filter((item) => item.message.customType === "pi-goals/budget-wrapup")).toHaveLength(1);
+    const wrapUps = pi.messages.filter((item) => item.message.customType === "pi-goals/budget-wrapup");
+    expect(wrapUps).toHaveLength(1);
+    expect(String(wrapUps[0]?.message.content)).toContain("docs/spec.md");
+    expect(String(wrapUps[0]?.message.content)).toContain("budget wrap-up checks durable context");
+    expect(String(wrapUps[0]?.message.content)).toContain("beforeCompletion: required");
   });
 
   it("does not count offline time between shutdown and restored turns", async () => {
@@ -114,11 +125,16 @@ describe("lifecycle restore and accounting", () => {
 describe("auto-continuation", () => {
   it("schedules continuation only for eligible active goals", () => {
     const pi = new FakePi();
-    const active = createGoal(emptyGoalState(snapshotConfig(DEFAULT_CONFIG)), { objective: "work", goalId: "g1", now: 10 });
+    const active = updateGoalContext(
+      createGoal(emptyGoalState(snapshotConfig(DEFAULT_CONFIG)), { objective: "work", goalId: "g1", now: 10 }),
+      { action: "instruction.add", text: "Use the durable instruction." },
+      { now: 11 },
+    );
     const store = createGoalStore(active, DEFAULT_CONFIG);
     const ctx = new FakeCtx();
     expect(maybeScheduleContinuation(pi, store, ctx)).toBe(true);
     expect(pi.messages[0]?.message.customType).toBe("pi-goals/continuation");
+    expect(String(pi.messages[0]?.message.content)).toContain("Use the durable instruction.");
 
     const pausedStore = createGoalStore(pauseGoal(active, { now: 11 }), DEFAULT_CONFIG);
     expect(maybeScheduleContinuation(new FakePi(), pausedStore, ctx)).toBe(false);

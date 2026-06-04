@@ -1,7 +1,7 @@
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import { accountElapsedTime } from "./accounting.js";
-import { appendState, blockGoal, completeGoal, createGoal, recordBlockedAttempt, remainingTokens } from "./goal-state.js";
+import { appendState, blockGoal, completeGoal, createGoal, recordBlockedAttempt, remainingTokens, replaceGoal } from "./goal-state.js";
 import type { PiGoalsStore } from "./types.js";
 import { goalUsageSummary, updateGoalUi } from "./ui.js";
 import { canAcceptBlocked, normalizeObjective, validateModelToolStatus, validatePositiveBudget } from "./validation.js";
@@ -37,7 +37,8 @@ export function registerGoalTools(pi: ToolRegistrationApi, store: PiGoalsStore):
     description: "Create a new active pi-goals objective only when the user explicitly requested goal creation.",
     promptGuidelines: [
       "Use create_goal only when the user explicitly asks to create or set a persisted goal.",
-      "Do not use create_goal when a goal already exists; ask the user to use /goal replacement commands instead.",
+      "Do not use create_goal when an unfinished goal already exists; ask the user to use /goal replacement commands instead.",
+      "If the existing goal is complete, create_goal may start the next requested goal.",
       "Do not set token_budget unless the user explicitly asks for a token limit or budget; subscription-based Codex usage does not require a budget.",
     ],
     parameters: Type.Object({
@@ -51,10 +52,13 @@ export function registerGoalTools(pi: ToolRegistrationApi, store: PiGoalsStore):
     }),
     async execute(_toolCallId: string, params: { objective: string; token_budget?: number }, _signal: unknown, _onUpdate: unknown, ctx: unknown) {
       const state = store.getState();
-      if (state.goal) throw new Error("A goal already exists; use /goal to replace or clear it.");
+      if (state.goal && state.goal.status !== "complete") throw new Error("An unfinished goal already exists; use /goal to replace or clear it.");
       const objective = normalizeObjective(params.objective, store.getConfig().maxObjectiveChars);
       const tokenBudget = params.token_budget === undefined ? null : validatePositiveBudget(params.token_budget);
-      const next = createGoal(state, { objective, tokenBudget, actor: "model", now: unixNow() });
+      const now = unixNow();
+      const next = state.goal
+        ? replaceGoal(state, { objective, tokenBudget, actor: "model", now })
+        : createGoal(state, { objective, tokenBudget, actor: "model", now });
       store.setState(next);
       appendState(pi, next);
       updateGoalUi(ctx, next);

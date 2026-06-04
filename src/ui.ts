@@ -1,3 +1,4 @@
+import { GOAL_REFERENCE_DOC_ROLES } from "./goal-context.js";
 import { remainingTokens, type GoalStateV1, type ThreadGoal } from "./goal-state.js";
 
 // Nerd Font: nf-fa-bullseye.
@@ -64,6 +65,44 @@ export function goalSummaryMarkdown(state: GoalStateV1): string {
   return lines.join("\n");
 }
 
+export function goalSummaryWithContextMarkdown(state: GoalStateV1): string {
+  return `${goalSummaryMarkdown(state)}\n\n${goalContextMarkdown(state)}`;
+}
+
+export function goalContextMarkdown(state: GoalStateV1): string {
+  const { referenceDocs, standingInstructions, acceptanceCriteria, rereadPolicy } = state.context;
+  const hasRereadPolicy = rereadPolicy.onResume || rereadPolicy.onContinuation || rereadPolicy.beforeCompletion;
+
+  const lines = ["## Durable Goal Context"];
+  if (referenceDocs.length === 0 && standingInstructions.length === 0 && acceptanceCriteria.length === 0 && !hasRereadPolicy) {
+    lines.push("No durable goal context.");
+    return lines.join("\n");
+  }
+
+  if (referenceDocs.length > 0) {
+    lines.push("", "References:");
+    for (const reference of referenceDocs) {
+      lines.push(`- ${singleLineMarkdownValue(reference.path)} (${reference.role})${reference.description ? `: ${singleLineMarkdownValue(reference.description)}` : ""}`);
+    }
+  }
+  if (standingInstructions.length > 0) {
+    lines.push("", "Standing instructions:");
+    for (const instruction of standingInstructions) lines.push(`- ${singleLineMarkdownValue(instruction)}`);
+  }
+  if (acceptanceCriteria.length > 0) {
+    lines.push("", "Acceptance criteria:");
+    for (const criterion of acceptanceCriteria) lines.push(`- ${singleLineMarkdownValue(criterion)}`);
+  }
+  if (referenceDocs.length > 0 || hasRereadPolicy) {
+    lines.push("", "Reread policy:");
+    if (referenceDocs.length === 0) lines.push("- no reference documents currently; policy will apply to future references");
+    lines.push(`- on resume: ${rereadPolicy.onResume ? "required" : "not required"}`);
+    lines.push(`- on continuation: ${rereadPolicy.onContinuation ? "required" : "not required"}`);
+    lines.push(`- before completion: ${rereadPolicy.beforeCompletion ? "required" : "not required"}`);
+  }
+  return lines.join("\n");
+}
+
 export function goalUsageSummary(goal: ThreadGoal): string {
   return [
     `${formatTokens(goal.tokensUsed)} counted tokens`,
@@ -88,6 +127,13 @@ export function goalHelpMarkdown(): string {
     "- `/goal resume`",
     "- `/goal budget <tokens>`",
     "- `/goal budget clear`",
+    `- \`/goal ref add <path> [--role ${GOAL_REFERENCE_DOC_ROLES.join("|")}] [--description <text>]\``,
+    "- `/goal instruction add <text>`",
+    "- `/goal criterion add <text>`",
+    "- `/goal reread on|off`",
+    "- `/goal reread resume|continuation|completion|before-completion on|off`",
+    "- `/goal context`",
+    "- `/goal context clear`",
     "- `/goal clear`",
     "- `/goal config`",
     "",
@@ -96,6 +142,10 @@ export function goalHelpMarkdown(): string {
     "- `create_goal` creates a goal only when explicitly requested and no goal exists.",
     "- `update_goal` accepts only `complete` or strict repeated-blocker `blocked`.",
   ].join("\n");
+}
+
+function singleLineMarkdownValue(value: string): string {
+  return JSON.stringify(value);
 }
 
 export function updateGoalUi(ctx: unknown, state: GoalStateV1): void {

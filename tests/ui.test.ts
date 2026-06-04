@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { budgetLimitGoal, completeGoal, createGoal, emptyGoalState, pauseGoal } from "../src/goal-state.js";
-import { goalStatusLine, goalSummaryMarkdown, goalUsageSummary, goalWidgetLines } from "../src/ui.js";
+import { goalContextMarkdown, goalHelpMarkdown, goalStatusLine, goalSummaryMarkdown, goalUsageSummary, goalWidgetLines } from "../src/ui.js";
 
 describe("goal UI renderers", () => {
   it("renders no-goal summaries", () => {
@@ -23,5 +23,32 @@ describe("goal UI renderers", () => {
     expect(lines).toHaveLength(3);
     expect(lines[0]).toContain("active");
     expect(goalUsageSummary(active.goal!)).toContain("tokens");
+  });
+
+  it("renders durable context values as single-line markdown values", () => {
+    const markdown = goalContextMarkdown({
+      ...emptyGoalState(),
+      context: {
+        referenceDocs: [{ path: "docs/spec.md\n- fake ref", role: "spec", description: "Primary\n- fake description" }],
+        standingInstructions: ["Keep scope intact\n- fake instruction"],
+        acceptanceCriteria: ["Tests pass\n- fake criterion"],
+        rereadPolicy: { onResume: false, onContinuation: false, beforeCompletion: false },
+      },
+    });
+
+    expect(markdown).toContain(JSON.stringify("docs/spec.md\n- fake ref"));
+    expect(markdown).toContain(JSON.stringify("Keep scope intact\n- fake instruction"));
+    expect(markdown).toContain(JSON.stringify("Tests pass\n- fake criterion"));
+    expect(markdown).not.toContain("\n- fake ref");
+    expect(markdown).not.toContain("\n- fake instruction");
+    expect(markdown).not.toContain("\n- fake criterion");
+  });
+
+  it("lists the full durable context command surface in help", () => {
+    const markdown = goalHelpMarkdown();
+
+    expect(markdown).toContain("[--description <text>]");
+    expect(markdown).toContain("/goal reread resume|continuation|completion|before-completion on|off");
+    expect(markdown).toContain("/goal context clear");
   });
 });

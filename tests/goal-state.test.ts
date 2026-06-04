@@ -16,8 +16,16 @@ import {
   resumeGoal,
   setGoalBudget,
   snapshotState,
+  updateGoalContext,
   usageLimitGoal,
 } from "../src/goal-state.js";
+import {
+  MAX_GOAL_CONTEXT_LIST_ITEMS,
+  MAX_GOAL_CONTEXT_PATH_CHARS,
+  MAX_GOAL_CONTEXT_TEXT_CHARS,
+  MAX_GOAL_REFERENCE_DOCS,
+  emptyGoalContext,
+} from "../src/goal-context.js";
 import { canAcceptBlocked, normalizeObjective, validateModelToolStatus, validatePositiveBudget } from "../src/validation.js";
 
 describe("goal state transitions", () => {
@@ -32,10 +40,12 @@ describe("goal state transitions", () => {
 
   it("replaces current goal with a fresh id and reset usage", () => {
     const first = createGoal(emptyGoalState(), { objective: "old", goalId: "g1", now: 10 });
-    const used = { ...first, goal: first.goal && { ...first.goal, tokensUsed: 50 } };
+    const contextual = updateGoalContext(first, { action: "instruction.add", text: "old context" }, { now: 11 });
+    const used = { ...contextual, goal: contextual.goal && { ...contextual.goal, tokensUsed: 50 } };
     const replaced = replaceGoal(used, { objective: "new", goalId: "g2", now: 20 });
     expect(replaced.goal?.goalId).toBe("g2");
     expect(replaced.goal?.tokensUsed).toBe(0);
+    expect(replaced.context).toEqual(emptyGoalContext());
     expect(first.goal?.objective).toBe("old");
   });
 
@@ -100,7 +110,9 @@ describe("goal state transitions", () => {
     expect(blockGoal(resumed, { now: 14 }).goal?.status).toBe("blocked");
     expect(usageLimitGoal(resumed, { now: 15 }).goal?.status).toBe("usage_limited");
     expect(budgetLimitGoal(resumed, { now: 16 }).goal?.status).toBe("budget_limited");
-    expect(clearGoal(resumed, { now: 17 }).goal).toBeNull();
+    const cleared = clearGoal(updateGoalContext(resumed, { action: "instruction.add", text: "clear me" }, { now: 16 }), { now: 17 });
+    expect(cleared.goal).toBeNull();
+    expect(cleared.context).toEqual(emptyGoalContext());
   });
 
   it("sets budget-limited when current usage already exceeds a new budget", () => {
@@ -186,6 +198,151 @@ describe("branch-aware persistence", () => {
     expect(restored.runtime.lastAccountedAt).toBeNull();
     expect(restored.config.maxAutoContinuations).toBe(0);
     expect(restored.config.noProgressTurnLimit).toBe(3);
+  });
+
+  it("restores old snapshots without context to an empty goal context", () => {
+    const state = createGoal(emptyGoalState(), { objective: "legacy", goalId: "g1", now: 10 });
+    const snapshot = snapshotState(state) as Record<string, unknown>;
+    delete snapshot.context;
+
+    const restored = restoreStateFromBranch([{ type: "custom", customType: GOAL_STATE_CUSTOM_TYPE, data: snapshot }]);
+
+    expect(restored.goal?.objective).toBe("legacy");
+    expect(restored.context).toEqual(emptyGoalContext());
+  });
+
+  it("restores and preserves goal context snapshots", () => {
+    const state = updateGoalContext(
+      createGoal(emptyGoalState(), { objective: "contextual work", goalId: "g1", now: 10 }),
+      {
+        referenceDocs: [{ path: "docs/spec.md", role: "spec", description: "Primary spec" }],
+        standingInstructions: ["Keep changes narrow"],
+        acceptanceCriteria: ["Focused tests pass"],
+        rereadPolicy: { onResume: true, onContinuation: false, beforeCompletion: true },
+      },
+      { now: 11, actor: "system" },
+    );
+
+    const restored = restoreStateFromBranch([{ type: "custom", customType: GOAL_STATE_CUSTOM_TYPE, data: snapshotState(state) }]);
+
+    expect(restored.context).toEqual(state.context);
+    expect(restored.lastMutation?.type).toBe("goal.context.update");
+  });
+
+  it("merges and replaces goal context updates", () => {
+    const state = updateGoalContext(
+      emptyGoalState(),
+      {
+        referenceDocs: [{ path: "docs/plan.md", role: "plan", description: null }],
+        standingInstructions: ["Follow the plan"],
+      },
+      { now: 10 },
+    );
+    const merged = updateGoalContext(state, { acceptanceCriteria: ["Done is tested"] }, { now: 11 });
+    const replaced = updateGoalContext(merged, { acceptanceCriteria: ["New checklist"] }, { replace: true, now: 12 });
+
+    expect(merged.context.referenceDocs).toEqual(state.context.referenceDocs);
+    expect(merged.context.standingInstructions).toEqual(["Follow the plan"]);
+    expect(merged.context.acceptanceCriteria).toEqual(["Done is tested"]);
+    expect(replaced.context).toEqual({
+      ...emptyGoalContext(),
+      acceptanceCriteria: ["New checklist"],
+    });
+  });
+
+  it("updates reference docs by path and reread policy by action", () => {
+    const state = updateGoalContext(emptyGoalState(), { action: "ref.add", path: "docs/spec.md", role: "spec", description: "Spec" }, { now: 10 });
+    const updatedRef = updateGoalContext(state, { action: "ref.add", path: "docs/spec.md", role: "plan", description: "Plan" }, { now: 11 });
+    const reread = updateGoalContext(updatedRef, { action: "reread.set", policy: { onContinuation: true, beforeCompletion: true } }, { now: 12 });
+
+    expect(updatedRef.context.referenceDocs).toEqual([{ path: "docs/spec.md", role: "plan", description: "Plan" }]);
+    expect(reread.context.rereadPolicy).toEqual({ onResume: false, onContinuation: true, beforeCompletion: true });
+  });
+
+  it("sanitizes invalid goal context data while restoring", () => {
+    const state = createGoal(emptyGoalState(), { objective: "sanitize", goalId: "g1", now: 10 });
+    const snapshot = snapshotState(state) as { goal: unknown };
+    const restored = restoreStateFromBranch([
+      {
+        type: "custom",
+        customType: GOAL_STATE_CUSTOM_TYPE,
+        data: {
+          schemaVersion: 1,
+          goal: snapshot.goal,
+          context: {
+            referenceDocs: [
+              { path: " docs/spec.md ", role: "spec", description: " Main spec " },
+              { path: "docs/spec.md", role: "plan", description: "duplicate path" },
+              { path: "", role: "plan", description: "drop empty path" },
+              { path: "notes/raw.md", role: "surprise", description: 42 },
+              42,
+            ],
+            standingInstructions: [" keep this ", "", "keep this", 42],
+            acceptanceCriteria: [" done ", null],
+            rereadPolicy: { onResume: true, onContinuation: "yes", beforeCompletion: false },
+          },
+          runtime: {},
+          config: {},
+          lastMutation: null,
+        },
+      },
+    ]);
+
+    expect(restored.goal?.objective).toBe("sanitize");
+    expect(restored.context).toEqual({
+      referenceDocs: [
+        { path: "docs/spec.md", role: "spec", description: "Main spec" },
+        { path: "notes/raw.md", role: "other", description: null },
+      ],
+      standingInstructions: ["keep this"],
+      acceptanceCriteria: ["done"],
+      rereadPolicy: { onResume: true, onContinuation: false, beforeCompletion: false },
+    });
+  });
+
+  it("caps restored goal context size and truncates oversized fields", () => {
+    const state = createGoal(emptyGoalState(), { objective: "limits", goalId: "g1", now: 10 });
+    const snapshot = snapshotState(state) as { goal: unknown };
+    const restored = restoreStateFromBranch([
+      {
+        type: "custom",
+        customType: GOAL_STATE_CUSTOM_TYPE,
+        data: {
+          schemaVersion: 1,
+          goal: snapshot.goal,
+          context: {
+            referenceDocs: [
+              { path: "p".repeat(MAX_GOAL_CONTEXT_PATH_CHARS + 200), role: "spec", description: "d".repeat(MAX_GOAL_CONTEXT_TEXT_CHARS + 200) },
+              ...Array.from({ length: MAX_GOAL_REFERENCE_DOCS + 10 }, (_, index) => ({
+                path: `docs/${index}.md`,
+                role: "plan",
+                description: `doc ${index}`,
+              })),
+            ],
+            standingInstructions: [
+              "i".repeat(MAX_GOAL_CONTEXT_TEXT_CHARS + 500),
+              ...Array.from({ length: MAX_GOAL_CONTEXT_LIST_ITEMS + 5 }, (_, index) => `instruction ${index}`),
+            ],
+            acceptanceCriteria: [
+              "c".repeat(MAX_GOAL_CONTEXT_TEXT_CHARS + 500),
+              ...Array.from({ length: MAX_GOAL_CONTEXT_LIST_ITEMS + 5 }, (_, index) => `criterion ${index}`),
+            ],
+            rereadPolicy: {},
+          },
+          runtime: {},
+          config: {},
+          lastMutation: null,
+        },
+      },
+    ]);
+
+    expect(restored.context.referenceDocs).toHaveLength(MAX_GOAL_REFERENCE_DOCS);
+    expect(restored.context.referenceDocs[0]?.path).toHaveLength(MAX_GOAL_CONTEXT_PATH_CHARS);
+    expect(restored.context.referenceDocs[0]?.description).toHaveLength(MAX_GOAL_CONTEXT_TEXT_CHARS);
+    expect(restored.context.standingInstructions).toHaveLength(MAX_GOAL_CONTEXT_LIST_ITEMS);
+    expect(restored.context.standingInstructions[0]).toHaveLength(MAX_GOAL_CONTEXT_TEXT_CHARS);
+    expect(restored.context.acceptanceCriteria).toHaveLength(MAX_GOAL_CONTEXT_LIST_ITEMS);
+    expect(restored.context.acceptanceCriteria[0]).toHaveLength(MAX_GOAL_CONTEXT_TEXT_CHARS);
   });
 
   it("does not leak abandoned branch snapshots when branch entries omit them", () => {

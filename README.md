@@ -46,6 +46,13 @@ The package manifest declares:
 /goal resume
 /goal budget <tokens>
 /goal budget clear
+/goal ref add <path> [--role spec|plan|adr|note|other] [--description <text>]
+/goal instruction add <text>
+/goal criterion add <text>
+/goal reread on|off
+/goal reread resume|continuation|completion|before-completion on|off
+/goal context
+/goal context clear [--force]
 /goal clear
 /goal help
 /goal config
@@ -53,7 +60,7 @@ The package manifest declares:
 
 Budget tokens accept plain integers plus `k` and `m` suffixes, such as `200000`, `200k`, `98.5K`, and `1.5M`.
 
-Confirmation-required commands fail closed in non-interactive mode unless `--force` is supplied. This applies to replacing unfinished goals, clearing unfinished goals, and clearing a budget-limited goal's budget.
+Confirmation-required commands fail closed in non-interactive mode unless `--force` is supplied. This applies to replacing unfinished goals, clearing unfinished goals, clearing durable goal context with `/goal context clear --force`, and clearing a budget-limited goal's budget.
 
 ## Model Tools
 
@@ -63,9 +70,39 @@ The extension registers:
 - `create_goal`
 - `update_goal`
 
-`create_goal` only works when no goal exists and should only be used when the user explicitly asked to create a persisted goal.
+`create_goal` works when no goal exists or when the current goal is already complete, and should only be used when the user explicitly asked to create a persisted goal. It refuses to replace unfinished goals; use `/goal` replacement commands for those.
 
 `update_goal` accepts only `complete` or `blocked`. Blocking requires the same blocker key to recur three times through the blocked audit before the terminal `blocked` transition succeeds.
+
+## Durable Context
+
+Goals can carry compact durable context alongside the objective: reference document paths, standing instructions, acceptance criteria, and a reread policy. When present, `pi-goals` injects that packet into hidden goal prompts so later turns can keep using the same durable references.
+
+Reference document paths are injected as references only. `pi-goals` does not read those files automatically; if the reread policy asks for it, the agent must reread the referenced docs before coding, concluding, or calling `update_goal complete`.
+
+Useful commands:
+
+- Create or resume a goal with `/goal <objective>` or `/goal --budget <tokens> <objective>`.
+- Add a reference with `/goal ref add <path> [--role spec|plan|adr|note|other] [--description <text>]`.
+- Add a standing instruction with `/goal instruction add <text>`.
+- Add an acceptance criterion with `/goal criterion add <text>`.
+- Toggle rereads globally with `/goal reread on|off`.
+- Toggle rereads per lifecycle point with `/goal reread resume|continuation|completion|before-completion on|off`.
+- View durable context with `/goal context`.
+- Clear durable context with `/goal context clear`; use `/goal context clear --force` in non-interactive CI or scripted flows.
+
+Examples:
+
+```text
+/goal ref add docs/spec.md --role spec --description "Primary spec"
+/goal ref add docs/implementation-plan.md --role plan
+/goal instruction add "Use Mockery for Go mocks"
+/goal criterion add "Targeted tests pass"
+/goal reread on
+/goal reread continuation off
+/goal context
+/goal context clear --force
+```
 
 ## Persistence
 
