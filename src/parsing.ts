@@ -1,4 +1,4 @@
-import { GOAL_REFERENCE_DOC_ROLES, type GoalReferenceDocRole } from "./goal-context.js";
+import { GOAL_REFERENCE_DOC_ROLES, isGoalReferenceDocRole, type GoalReferenceDocRole } from "./goal-context.js";
 import { validatePositiveBudget } from "./validation.js";
 
 export type GoalCommand =
@@ -233,7 +233,7 @@ function parseTextAddCommand(
 }
 
 function parseReferenceRole(input: string): GoalReferenceDocRole {
-  if ((GOAL_REFERENCE_DOC_ROLES as readonly string[]).includes(input)) return input as GoalReferenceDocRole;
+  if (isGoalReferenceDocRole(input)) return input;
   throw new GoalParseError(`Invalid reference role: ${input}.`);
 }
 

@@ -181,7 +181,11 @@ export function sanitizeGoalRereadPolicy(value: unknown, fallback: GoalRereadPol
 }
 
 export function sanitizeGoalReferenceDocRole(value: unknown): GoalReferenceDocRole {
-  return typeof value === "string" && (GOAL_REFERENCE_DOC_ROLES as readonly string[]).includes(value) ? (value as GoalReferenceDocRole) : "other";
+  return isGoalReferenceDocRole(value) ? value : "other";
+}
+
+export function isGoalReferenceDocRole(value: unknown): value is GoalReferenceDocRole {
+  return typeof value === "string" && (GOAL_REFERENCE_DOC_ROLES as readonly string[]).includes(value);
 }
 
 function sanitizeNullableText(value: unknown, maxChars: number): string | null {

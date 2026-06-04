@@ -46,7 +46,7 @@ The package manifest declares:
 /goal resume
 /goal budget <tokens>
 /goal budget clear
-/goal ref add <path> [--role spec|plan|notes|test|other] [--description <text>]
+/goal ref add <path> [--role spec|plan|adr|note|other] [--description <text>]
 /goal instruction add <text>
 /goal criterion add <text>
 /goal reread on|off
@@ -83,7 +83,7 @@ Reference document paths are injected as references only. `pi-goals` does not re
 Useful commands:
 
 - Create or resume a goal with `/goal <objective>` or `/goal --budget <tokens> <objective>`.
-- Add a reference with `/goal ref add <path> [--role spec|plan|notes|test|other] [--description <text>]`.
+- Add a reference with `/goal ref add <path> [--role spec|plan|adr|note|other] [--description <text>]`.
 - Add a standing instruction with `/goal instruction add <text>`.
 - Add an acceptance criterion with `/goal criterion add <text>`.
 - Toggle rereads globally with `/goal reread on|off`.
