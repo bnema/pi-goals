@@ -1,12 +1,15 @@
 {
   "name": "pi-goals",
   "version": "0.1.0",
-  "description": "Persisted branch-aware thread goals for Pi coding-agent sessions.",
+  "description": "Persist branch-aware goals across Pi sessions.",
   "type": "module",
   "author": "bnema",
   "license": "MIT",
   "keywords": [
-    "pi-package"
+    "pi",
+    "pi-extension",
+    "goals",
+    "continuation"
   ],
   "repository": {
     "type": "git",
