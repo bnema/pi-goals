@@ -52,7 +52,33 @@ Budget tokens accept plain integers plus `k` and `m` suffixes.
 
 ## Durable context and persistence
 
-Goals can store reference paths, standing instructions, acceptance criteria, and reread policy. Goal state is branch-aware and stored outside normal README/docs flow in the Pi session/state layer.
+Goals can store reference paths, standing instructions, acceptance criteria, and reread policy. Reference paths are injected as references only; the extension does not read those files automatically. If the reread policy asks for it, the agent must reread the referenced docs before coding, concluding, or calling `update_goal complete`.
+
+Every goal mutation appends a custom session entry. The extension reconstructs state from the active session branch, so `/tree`, `/fork`, `/clone`, `/resume`, and `/reload` restore the latest state for that branch.
+
+## Configuration
+
+Config is loaded from built-in defaults, then `~/.pi/agent/pi-goals.json`, then `.pi/pi-goals.json` relative to the Pi working directory.
+
+Example keys:
+
+```json
+{
+  "autoContinue": true,
+  "showWidget": false,
+  "maxObjectiveChars": 4000,
+  "maxAutoContinuations": 50,
+  "noProgressTurnLimit": 3,
+  "defaultTokenBudget": null,
+  "countCachedInputTokens": false,
+  "confirmReplace": true,
+  "usageLimitPatterns": ["usage limit", "rate limit"]
+}
+```
+
+## Limitations
+
+Pi extensions cannot preempt a provider response exactly when a token budget is crossed mid-stream. `pi-goals` accounts at available lifecycle points, prevents further substantive continuation after the budget is reached, and schedules a one-time wrap-up turn.
 
 ## Develop
 
